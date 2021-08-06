@@ -61,6 +61,7 @@ import           Plutus.PAB.Core.ContractInstance.RequestHandlers (ContractInsta
 import           Wallet.Effects                                   (ChainIndexEffect, NodeClientEffect, WalletEffect)
 import           Wallet.Emulator.LogMessages                      (TxBalanceMsg)
 
+import           Plutus.ChainIndex                                (ChainIndexQueryEffect)
 import           Plutus.Contract                                  (AddressChangeRequest (..))
 import           Plutus.PAB.Core.ContractInstance.STM             (Activity (Done, Stopped), BlockchainEnv (..),
                                                                    InstanceState (..), InstancesState,
@@ -159,7 +160,7 @@ initContractInstanceState ::
 initContractInstanceState ContractActivationArgs{caID} = do
   activeContractInstanceId <- ContractInstanceId <$> uuidNextRandom
   initialState <- Contract.initialState @t activeContractInstanceId caID
-  pure $ (activeContractInstanceId, ContractInstanceState initialState emptyInstanceState)
+  pure (activeContractInstanceId, ContractInstanceState initialState emptyInstanceState)
 
 processAwaitSlotRequestsSTM ::
     forall effs.
@@ -189,10 +190,10 @@ processUtxoSpentRequestsSTM ::
     )
     => RequestHandler effs (Request PABReq) (Response (STM PABResp))
 processUtxoSpentRequestsSTM = RequestHandler $ \req -> do
-    case traverse (preview Contract.Effects._AwaitUtxoSpentReq) req of
+    case traverse (preview Contract.Effects._AwaitUtxoSpentReqOld) req of
         Just request@Request{rqID, itID} -> do
             env <- ask
-            pure $ Response rqID itID (AwaitUtxoSpentResp <$> InstanceState.waitForUtxoSpent request env)
+            pure $ Response rqID itID (AwaitUtxoSpentRespOld <$> InstanceState.waitForUtxoSpent request env)
         _ -> empty
 
 processUtxoProducedRequestsSTM ::
@@ -201,10 +202,10 @@ processUtxoProducedRequestsSTM ::
     )
     => RequestHandler effs (Request PABReq) (Response (STM PABResp))
 processUtxoProducedRequestsSTM = RequestHandler $ \req -> do
-    case traverse (preview Contract.Effects._AwaitUtxoProducedReq) req of
+    case traverse (preview Contract.Effects._AwaitUtxoProducedReqOld) req of
         Just request@Request{rqID, itID} -> do
             env <- ask
-            pure $ Response rqID itID (AwaitUtxoProducedResp <$> InstanceState.waitForUtxoProduced request env)
+            pure $ Response rqID itID (AwaitUtxoProducedRespOld <$> InstanceState.waitForUtxoProduced request env)
         _ -> empty
 
 processEndpointRequestsSTM ::
@@ -229,6 +230,7 @@ processAwaitTimeRequestsSTM =
 stmRequestHandler ::
     forall effs.
     ( Member ChainIndexEffect effs
+    , Member ChainIndexQueryEffect effs
     , Member WalletEffect effs
     , Member NodeClientEffect effs
     , Member (LogMsg RequestHandlerLogMsg) effs
@@ -240,14 +242,15 @@ stmRequestHandler ::
     => RequestHandler effs (Request PABReq) (STM (Response PABResp))
 stmRequestHandler = fmap sequence (wrapHandler (fmap pure nonBlockingRequests) <> blockingRequests) where
 
-    -- requests that can be handled by 'WalletEffect', 'ChainIndexEffect', etc.
+    -- requests that can be handled by 'WalletEffect', 'ChainIndexQueryEffect', etc.
     nonBlockingRequests =
         RequestHandler.handleOwnPubKeyQueries @effs
-        <> RequestHandler.handleUtxoQueries @effs
+        <> RequestHandler.handleChainIndexQueries @effs
+        <> RequestHandler.handleUtxoQueriesOld @effs
         <> RequestHandler.handleUnbalancedTransactions @effs
-        <> RequestHandler.handlePendingTransactions @effs
+        <> RequestHandler.handlePendingTransactionsOld @effs
         <> RequestHandler.handleOwnInstanceIdQueries @effs
-        <> RequestHandler.handleAddressChangedAtQueries @effs
+        <> RequestHandler.handleAddressChangedAtQueriesOld @effs
         <> RequestHandler.handleCurrentSlotQueries @effs
         <> RequestHandler.handleCurrentTimeQueries @effs
 
@@ -303,6 +306,7 @@ type AppBackendConstraints t m effs =
     , Member (Error PABError) effs
     , Member (LogMsg (ContractInstanceMsg t)) effs
     , Member ChainIndexEffect effs
+    , Member ChainIndexQueryEffect effs
     , Member WalletEffect effs
     , Member NodeClientEffect effs
     , Member (LogMsg RequestHandlerLogMsg) effs
@@ -366,8 +370,8 @@ updateState ContractResponse{newState = State{observableState}, hooks} = do
                 UtxoAtReq addr -> InstanceState.addAddress addr state
                 AddressChangeReq AddressChangeRequest{acreqAddress} -> InstanceState.addAddress acreqAddress state
                 ExposeEndpointReq endpoint -> InstanceState.addEndpoint (r { rqRequest = endpoint}) state
-                AwaitUtxoSpentReq txOutRef -> InstanceState.addUtxoSpentReq (r { rqRequest = txOutRef }) state
-                AwaitUtxoProducedReq addr  -> InstanceState.addUtxoProducedReq (r { rqRequest = addr }) state
+                AwaitUtxoSpentReqOld txOutRef -> InstanceState.addUtxoSpentReq (r { rqRequest = txOutRef }) state
+                AwaitUtxoProducedReqOld addr  -> InstanceState.addUtxoProducedReq (r { rqRequest = addr }) state
                 _ -> pure ()
         InstanceState.setObservableState observableState state
 
@@ -376,6 +380,7 @@ updateState ContractResponse{newState = State{observableState}, hooks} = do
 respondToRequestsSTM ::
     forall t effs.
     ( Member ChainIndexEffect effs
+    , Member ChainIndexQueryEffect effs
     , Member WalletEffect effs
     , Member NodeClientEffect effs
     , Member (LogMsg RequestHandlerLogMsg) effs

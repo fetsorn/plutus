@@ -10,8 +10,8 @@ module Plutus.Contract.Effects( -- TODO: Move to Requests.Internal
     PABReq(..),
     _AwaitSlotReq,
     _AwaitTimeReq,
-    _AwaitUtxoSpentReq,
-    _AwaitUtxoProducedReq,
+    _AwaitUtxoSpentReqOld,
+    _AwaitUtxoProducedReqOld,
     _CurrentSlotReq,
     _CurrentTimeReq,
     _AwaitTxStatusChangeReq,
@@ -37,8 +37,8 @@ module Plutus.Contract.Effects( -- TODO: Move to Requests.Internal
     PABResp(..),
     _AwaitSlotResp,
     _AwaitTimeResp,
-    _AwaitUtxoSpentResp,
-    _AwaitUtxoProducedResp,
+    _AwaitUtxoSpentRespOld,
+    _AwaitUtxoProducedRespOld,
     _CurrentSlotResp,
     _CurrentTimeResp,
     _AwaitTxStatusChangeResp,
@@ -89,8 +89,8 @@ import           Data.Text.Prettyprint.Doc        (Pretty (..), colon, hsep, ind
 import           Data.Text.Prettyprint.Doc.Extras (PrettyShow (..))
 import           GHC.Generics                     (Generic)
 import           Ledger                           (Address, Datum, DatumHash, MintingPolicy, MintingPolicyHash,
-                                                   OnChainTx, PubKey, Tx, TxId, TxOutRef, TxOutTx (..), ValidatorHash,
-                                                   eitherTx, txId)
+                                                   OnChainTx, PubKey, StakeValidator, StakeValidatorHash, Tx, TxId,
+                                                   TxOutRef, TxOutTx (..), ValidatorHash, eitherTx, txId)
 import           Ledger.AddressMap                (UtxoMap)
 import           Ledger.Constraints.OffChain      (UnbalancedTx)
 import           Ledger.Credential                (Credential)
@@ -98,7 +98,7 @@ import           Ledger.Scripts                   (Validator)
 import           Ledger.Slot                      (Slot (..), SlotRange)
 import           Ledger.Time                      (POSIXTime (..), POSIXTimeRange)
 import           Ledger.TimeSlot                  (SlotConversionError)
-import           Ledger.Tx                        (TxOut)
+import           Ledger.Tx                        (ChainIndexTxOut)
 import           Plutus.ChainIndex                (Tip)
 import           Plutus.ChainIndex.Tx             (ChainIndexTx (_citxTxId))
 import           Plutus.ChainIndex.Types          (Page (pageItems))
@@ -111,16 +111,16 @@ import           Wallet.Types                     (AddressChangeRequest, Address
 data PABReq =
     AwaitSlotReq Slot
     | AwaitTimeReq POSIXTime
-    | AwaitUtxoSpentReq TxOutRef
-    | AwaitUtxoProducedReq Address
+    | AwaitUtxoSpentReqOld TxOutRef
+    | AwaitUtxoProducedReqOld Address
     | AwaitTxStatusChangeReq TxId
     | CurrentSlotReq
     | CurrentTimeReq
     | OwnContractInstanceIdReq
     | OwnPublicKeyReq
-    | UtxoAtReq Address
+    | UtxoAtReq Address -- TODO Remove, uses old chain index
     | ChainIndexQueryReq ChainIndexQuery
-    | AddressChangeReq AddressChangeRequest -- deprecated
+    | AddressChangeReq AddressChangeRequest -- TODO Remove, uses old chain index
     | BalanceTxReq UnbalancedTx
     | WriteBalancedTxReq Tx
     | ExposeEndpointReq ActiveEndpoint
@@ -132,8 +132,8 @@ instance Pretty PABReq where
   pretty = \case
     AwaitSlotReq s                          -> "Await slot:" <+> pretty s
     AwaitTimeReq s                          -> "Await time:" <+> pretty s
-    AwaitUtxoSpentReq utxo                  -> "Await utxo spent:" <+> pretty utxo
-    AwaitUtxoProducedReq a                  -> "Await utxo produced:" <+> pretty a
+    AwaitUtxoSpentReqOld utxo               -> "Await utxo spent:" <+> pretty utxo
+    AwaitUtxoProducedReqOld a               -> "Await utxo produced:" <+> pretty a
     CurrentSlotReq                          -> "Current slot"
     CurrentTimeReq                          -> "Current time"
     AwaitTxStatusChangeReq txid             -> "Await tx status change:" <+> pretty txid
@@ -151,8 +151,8 @@ instance Pretty PABReq where
 data PABResp =
     AwaitSlotResp Slot
     | AwaitTimeResp POSIXTime
-    | AwaitUtxoSpentResp OnChainTx
-    | AwaitUtxoProducedResp (NonEmpty OnChainTx)
+    | AwaitUtxoSpentRespOld OnChainTx
+    | AwaitUtxoProducedRespOld (NonEmpty OnChainTx)
     | AwaitTxStatusChangeResp TxId TxStatus
     | CurrentSlotResp Slot
     | CurrentTimeResp POSIXTime
@@ -172,8 +172,8 @@ instance Pretty PABResp where
   pretty = \case
     AwaitSlotResp s                          -> "Slot:" <+> pretty s
     AwaitTimeResp s                          -> "Time:" <+> pretty s
-    AwaitUtxoSpentResp utxo                  -> "Utxo spent:" <+> pretty utxo
-    AwaitUtxoProducedResp addr               -> "Utxo produced:" <+> pretty addr
+    AwaitUtxoSpentRespOld utxo               -> "Utxo spent:" <+> pretty utxo
+    AwaitUtxoProducedRespOld addr            -> "Utxo produced:" <+> pretty addr
     CurrentSlotResp s                        -> "Current slot:" <+> pretty s
     CurrentTimeResp s                        -> "Current time:" <+> pretty s
     AwaitTxStatusChangeResp txid status      -> "Status of" <+> pretty txid <+> "changed to" <+> pretty status
@@ -191,8 +191,8 @@ matches :: PABReq -> PABResp -> Bool
 matches a b = case (a, b) of
   (AwaitSlotReq{}, AwaitSlotResp{})                        -> True
   (AwaitTimeReq{}, AwaitTimeResp{})                        -> True
-  (AwaitUtxoSpentReq{}, AwaitUtxoSpentResp{})              -> True
-  (AwaitUtxoProducedReq{}, AwaitUtxoProducedResp{})        -> True
+  (AwaitUtxoSpentReqOld{}, AwaitUtxoSpentRespOld{})              -> True
+  (AwaitUtxoProducedReqOld{}, AwaitUtxoProducedRespOld{})        -> True
   (CurrentSlotReq, CurrentSlotResp{})                      -> True
   (CurrentTimeReq, CurrentTimeResp{})                      -> True
   (AwaitTxStatusChangeReq i, AwaitTxStatusChangeResp i' _) -> i == i'
@@ -210,15 +210,16 @@ matches a b = case (a, b) of
 
 chainIndexMatches :: ChainIndexQuery -> ChainIndexResponse -> Bool
 chainIndexMatches q r = case (q, r) of
-    (DatumFromHash{}, DatumHashResponse{})                 -> True
-    (ValidatorFromHash{}, ValidatorHashResponse{})         -> True
-    (MintingPolicyFromHash{}, MintingPolicyHashResponse{}) -> True
-    (TxOutFromRef{}, TxOutRefResponse{})                   -> True
-    (TxFromTxId{}, TxIdResponse{})                         -> True
-    (UtxoSetMembership{}, UtxoSetMembershipResponse{})     -> True
-    (UtxoSetAtAddress{}, UtxoSetAtResponse{})              -> True
-    (GetTip{}, GetTipResponse{})                           -> True
-    _                                                      -> False
+    (DatumFromHash{}, DatumHashResponse{})                   -> True
+    (ValidatorFromHash{}, ValidatorHashResponse{})           -> True
+    (MintingPolicyFromHash{}, MintingPolicyHashResponse{})   -> True
+    (StakeValidatorFromHash{}, StakeValidatorHashResponse{}) -> True
+    (TxOutFromRef{}, TxOutRefResponse{})                     -> True
+    (TxFromTxId{}, TxIdResponse{})                           -> True
+    (UtxoSetMembership{}, UtxoSetMembershipResponse{})       -> True
+    (UtxoSetAtAddress{}, UtxoSetAtResponse{})                -> True
+    (GetTip{}, GetTipResponse{})                             -> True
+    _                                                        -> False
 
 -- | Represents all possible chain index queries. Each constructor contains the
 -- input(s) needed for the query. These possible queries correspond to the
@@ -227,6 +228,7 @@ data ChainIndexQuery =
     DatumFromHash DatumHash
   | ValidatorFromHash ValidatorHash
   | MintingPolicyFromHash MintingPolicyHash
+  | StakeValidatorFromHash StakeValidatorHash
   | TxOutFromRef TxOutRef
   | TxFromTxId TxId
   | UtxoSetMembership TxOutRef
@@ -240,6 +242,7 @@ instance Pretty ChainIndexQuery where
         DatumFromHash h            -> "requesting datum from hash" <+> pretty h
         ValidatorFromHash h        -> "requesting validator from hash" <+> pretty h
         MintingPolicyFromHash h    -> "requesting minting policy from hash" <+> pretty h
+        StakeValidatorFromHash h   -> "requesting stake validator from hash" <+> pretty h
         TxOutFromRef r             -> "requesting utxo from utxo reference" <+> pretty r
         TxFromTxId i               -> "requesting chain index tx from id" <+> pretty i
         UtxoSetMembership txOutRef -> "whether tx output is part of the utxo set" <+> pretty txOutRef
@@ -253,7 +256,8 @@ data ChainIndexResponse =
     DatumHashResponse (Maybe Datum)
   | ValidatorHashResponse (Maybe Validator)
   | MintingPolicyHashResponse (Maybe MintingPolicy)
-  | TxOutRefResponse (Maybe TxOut)
+  | StakeValidatorHashResponse (Maybe StakeValidator)
+  | TxOutRefResponse (Maybe ChainIndexTxOut)
   | TxIdResponse (Maybe ChainIndexTx)
   | UtxoSetMembershipResponse (Tip, Bool)
   | UtxoSetAtResponse (Tip, Page TxOutRef)
@@ -266,6 +270,7 @@ instance Pretty ChainIndexResponse where
         DatumHashResponse d -> "Chain index datum from hash response:" <+> pretty d
         ValidatorHashResponse v -> "Chain index validator from hash response:" <+> pretty v
         MintingPolicyHashResponse m -> "Chain index minting policy from hash response:" <+> pretty m
+        StakeValidatorHashResponse m -> "Chain index stake validator from hash response:" <+> pretty m
         TxOutRefResponse t -> "Chain index utxo from utxo ref response:" <+> pretty t
         TxIdResponse t -> "Chain index tx from tx id response:" <+> pretty (_citxTxId <$> t)
         UtxoSetMembershipResponse (tip, b) ->
