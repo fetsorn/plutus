@@ -20,7 +20,7 @@
       repo = "nixpkgs";
 
       # We pin this revision to avoid mass-rebuilds from the auto-update process.
-      rev = "0747387223edf1aa5beaedf48983471315d95e16";
+      rev = "6525bbc06a39f26750ad8ee0d40000ddfdc24acb";
 
       ref = "nixpkgs-unstable";
 
