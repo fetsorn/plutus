@@ -57,7 +57,12 @@ let
           packages = import ./default.nix { inherit system crossSystem checkMaterialization; };
           pkgs = packages.pkgs;
           plutus = packages.plutus;
-          isBuildable = platformFilterGeneric pkgs (if crossSystem == null then system else crossSystem.config);
+          # Map `crossSystem.config` to a name used in `lib.platforms`
+          platformString =
+            if crossSystem == null then system
+            else if crossSystem.config == "x86_64-w64-mingw32" then "x86_64-windows"
+            else crossSystem.config;
+          isBuildable = platformFilterGeneric pkgs platformString;
           filterCross = x:
             if crossSystem == null
             then x
