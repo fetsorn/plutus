@@ -148,36 +148,26 @@ let
         packages.plutus-core.components.benchmarks.update-cost-model.buildable = lib.mkForce false;
       })
       ({ pkgs, ... }: lib.mkIf pkgs.stdenv.hostPlatform.isWindows {
-        # Things that need plutus-tx-plugins
-	    packages.marlowe.components.library.buildable = lib.mkForce false;
-	    packages.marlowe-actus.components.library.buildable = lib.mkForce false;
-	    packages.marlowe-actus.components.tests.marlowe-actus-test.buildable = lib.mkForce false;
-	    packages.marlowe-dashboard-server.components.library.buildable = lib.mkForce false;
-	    packages.marlowe-playground-server.components.library.buildable = lib.mkForce false;
-	    packages.marlowe-symbolic.components.library.buildable = lib.mkForce false;
-	    packages.playground-common.components.library.buildable = lib.mkForce false;
-	    packages.playground-common.components.tests.playground-common.buildable = lib.mkForce false;
-	    packages.plutus-benchmark.components.library.buildable = lib.mkForce false;
-	    packages.plutus-benchmark.components.tests.plutus-benchmark-nofib-tests.buildable = lib.mkForce false;
-	    packages.plutus-benchmark.components.benchmarks.nofib.buildable = lib.mkForce false;
-	    packages.plutus-chain-index.components.library.buildable = lib.mkForce false;
-	    packages.plutus-chain-index.components.tests.plutus-chain-index-test.buildable = lib.mkForce false;
-	    packages.plutus-contract.components.library.buildable = lib.mkForce false;
-	    packages.plutus-contract.components.tests.plutus-contract-test.buildable = lib.mkForce false;
-	    packages.plutus-errors.components.library.buildable = lib.mkForce false;
-	    packages.plutus-ledger.components.library.buildable = lib.mkForce false;
-	    packages.plutus-ledger.components.tests.plutus-ledger-test.buildable = lib.mkForce false;
-	    packages.plutus-pab.components.library.buildable = lib.mkForce false;
-	    packages.plutus-pab.components.tests.plutus-pab-test-full.buildable = lib.mkForce false;
-	    packages.plutus-pab.components.tests.pab-test-light.buildable = lib.mkForce false;
-	    packages.plutus-playground-server.components.library.buildable = lib.mkForce false;
-	    packages.plutus-playground-server.components.tests.plutus-playground-server-test.buildable = lib.mkForce false;
-	    packages.plutus-use-cases.components.library.buildable = lib.mkForce false;
-	    packages.plutus-use-cases.components.tests.plutus-use-cases-test.buildable = lib.mkForce false;
-	    packages.web-ghc.components.library.buildable = lib.mkForce false;
-	    packages.web-ghc.components.tests.web-ghc-test.buildable = lib.mkForce false;
-	    # Needs agda
-	    packages.plutus-metatheory.components.library.buildable = lib.mkForce false;
+        packages = {
+          # Things that need plutus-tx-plugins
+          marlowe.package.buildable = false;
+          marlowe-actus.package.buildable = false;
+          marlowe-dashboard-server.package.buildable = false;
+          marlowe-playground-server.package.buildable = false;
+          marlowe-symbolic.package.buildable = false;
+          playground-common.package.buildable = false;
+          plutus-benchmark.package.buildable = false;
+          plutus-chain-index.package.buildable = false;
+          plutus-contract.package.buildable = false;
+          plutus-errors.package.buildable = false;
+          plutus-ledger.package.buildable = false;
+          plutus-pab.package.buildable = false;
+          plutus-playground-server.package.buildable = false;
+          plutus-use-cases.package.buildable = false;
+          web-ghc.package.buildable = false;
+          # Needs agda
+          plutus-metatheory.package.buildable = false;
+        };
       })
       ({ pkgs, config, ... }: {
         packages = {
