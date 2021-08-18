@@ -8,7 +8,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# OPTIONS_GHC -fplugin PlutusTx.Plugin -fplugin-opt PlutusTx.Plugin:defer-errors -fplugin-opt PlutusTx.Plugin:debug-context #-}
+{-# OPTIONS_GHC -fplugin PlutusTx.Plugin -fplugin-opt PlutusTx.Plugin:defer-errors -fplugin-opt PlutusTx.Plugin:debug-context -fplugin-opt PlutusTx.Plugin:profile-all #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC   -g #-}
 
@@ -62,11 +62,25 @@ runPlcCekTrace values = do
      res <- either (throwError . SomeException) Haskell.pure result
      Haskell.pure (logOut, tally, res)
 
+runPlcCekTraceProfile ::
+     ToUPlc a PLC.DefaultUni PLC.DefaultFun =>
+     [a] ->
+     ExceptT SomeException Haskell.IO ([Text], CekExTally PLC.DefaultFun, Term PLC.Name PLC.DefaultUni PLC.DefaultFun ())
+runPlcCekTraceProfile values = do
+     ps <- Haskell.traverse toUPlc values
+     let p = Haskell.foldl1 UPLC.applyProgram ps
+     let (logOut, TallyingSt tally _, result) = evaluateCekTraceTime p
+     res <- either (throwError . SomeException) Haskell.pure result
+     Haskell.pure (logOut, tally, res)
+
 goldenEvalCek :: ToUPlc a PLC.DefaultUni PLC.DefaultFun => Haskell.String -> [a] -> TestNested
 goldenEvalCek name values = nestedGoldenVsDocM name $ prettyPlcClassicDebug Haskell.<$> (rethrow $ runPlcCek values)
 
 goldenEvalCekLog :: ToUPlc a PLC.DefaultUni PLC.DefaultFun => Haskell.String -> [a] -> TestNested
 goldenEvalCekLog name values = nestedGoldenVsDocM name $ pretty . view _1 Haskell.<$> (rethrow $ runPlcCekTrace values)
+
+goldenEvalCekProfile :: ToUPlc a PLC.DefaultUni PLC.DefaultFun => Haskell.String -> [a] -> TestNested
+goldenEvalCekProfile name values = nestedGoldenVsDocM name $ pretty . view _1 Haskell.<$> (rethrow $ runPlcCekTraceProfile values)
 
 tests :: TestNested
 tests = testNested "TH" [
@@ -78,7 +92,10 @@ tests = testNested "TH" [
     , goldenEvalCekLog "traceDirect" [traceDirect]
     , goldenEvalCekLog "tracePrelude" [tracePrelude]
     , goldenEvalCekLog "traceRepeatedly" [traceRepeatedly]
-    -- want to see the raw structure, so using Show
+    , goldenEvalCekProfile "traceDirect" [traceDirect]
+    , goldenEvalCekProfile "tracePrelude" [tracePrelude]
+    , goldenEvalCekProfile "traceRepeatedly" [traceRepeatedly]
+        -- want to see the raw structure, so using Show
     , nestedGoldenVsDoc "someData" (pretty $ Haskell.show someData)
   ]
 
