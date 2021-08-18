@@ -72,6 +72,7 @@ library
         plutus-tx -any
     if flag(use-ghc-stub)
         build-depends: plutus-ghc-stub
+        ghc-options: -Wno-unused-packages -Wno-unused-imports -Wno-overlapping-patterns
     else
         build-depends: ghc >=8.10 && <9
 

@@ -205,7 +205,8 @@ data ImportSpec = ImpSpec { is_decl :: ImpDeclSpec,
     deriving( Eq, Ord, Data )
 
 data ModIface = ModIface { mi_exports :: [IfaceExport] }
-data ModGuts = ModGuts { mg_fam_inst_env :: FamInstEnv }
+data ModGuts = ModGuts { mg_fam_inst_env :: FamInstEnv,
+                         mg_module :: Module }
 
 data FamInstEnv = FamInstEnv_
 

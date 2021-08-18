@@ -159,6 +159,7 @@ let
 	    packages.playground-common.components.tests.playground-common.buildable = lib.mkForce false;
 	    packages.plutus-benchmark.components.library.buildable = lib.mkForce false;
 	    packages.plutus-benchmark.components.tests.plutus-benchmark-nofib-tests.buildable = lib.mkForce false;
+	    packages.plutus-benchmark.components.benchmarks.nofib.buildable = lib.mkForce false;
 	    packages.plutus-chain-index.components.library.buildable = lib.mkForce false;
 	    packages.plutus-chain-index.components.tests.plutus-chain-index-test.buildable = lib.mkForce false;
 	    packages.plutus-contract.components.library.buildable = lib.mkForce false;
