@@ -28,7 +28,7 @@
     };
     haskell-nix = {
       # We pin this revision to avoid mass-rebuilds from the auto-update process.
-      url = "github:input-output-hk/haskell.nix?rev=35f04ef15318ace00896167adaa20fe8044365cf";
+      url = "github:input-output-hk/haskell.nix?rev=3835023cdabc78f1cbdb975015072624b98c61d0";
 
       flake = false;
     };
