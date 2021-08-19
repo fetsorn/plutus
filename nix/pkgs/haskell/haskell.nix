@@ -139,21 +139,12 @@ let
         packages.prettyprinter-configurable.components.tests.prettyprinter-configurable-test.buildable = lib.mkForce false;
       })
       ({ pkgs, ... }: lib.mkIf (pkgs.stdenv.hostPlatform != pkgs.stdenv.buildPlatform) {
-        # Remove hsc2hs build-tool dependencies (suitable version will be available as part of the ghc derivation)
-        packages.terminal-size.components.library.build-tools = lib.mkForce [ ];
-        packages.network.components.library.build-tools = lib.mkForce [ ];
-        packages.process.components.library.libs = lib.mkForce [ ];
-        # These need R
-        packages.plutus-core.components.benchmarks.cost-model-test.buildable = lib.mkForce false;
-        packages.plutus-core.components.benchmarks.update-cost-model.buildable = lib.mkForce false;
-      })
-      ({ pkgs, ... }: lib.mkIf pkgs.stdenv.hostPlatform.isWindows {
         packages = {
           # Things that need plutus-tx-plugins
-          marlowe.package.buildable = false;
+          marlowe.package.buildable = false;  # Would also require libpq
           marlowe-actus.package.buildable = false;
           marlowe-dashboard-server.package.buildable = false;
-          marlowe-playground-server.package.buildable = false;
+          marlowe-playground-server.package.buildable = false; # Would also require libpq
           marlowe-symbolic.package.buildable = false;
           playground-common.package.buildable = false;
           plutus-benchmark.package.buildable = false;
@@ -162,11 +153,16 @@ let
           plutus-errors.package.buildable = false;
           plutus-ledger.package.buildable = false;
           plutus-pab.package.buildable = false;
-          plutus-playground-server.package.buildable = false;
+          plutus-playground-server.package.buildable = false; # Would also require libpq
           plutus-use-cases.package.buildable = false;
           web-ghc.package.buildable = false;
           # Needs agda
           plutus-metatheory.package.buildable = false;
+          # These need R
+          plutus-core.components.benchmarks.cost-model-test.buildable = lib.mkForce false;
+          plutus-core.components.benchmarks.update-cost-model.buildable = lib.mkForce false;
+          # Windows build of libpq is marked as broken
+          fake-pab.package.buildable = false;
         };
       })
       ({ pkgs, config, ... }: {
@@ -236,13 +232,6 @@ let
             export ACTUS_TEST_DATA_DIR=${actus-tests}/tests/
           '';
 
-          # Windows build of libpq is marked as broken
-          fake-pab.components.library.platforms = with lib.platforms; [ linux darwin ];
-          fake-pab.components.exes.fake-pab-server.platforms = with lib.platforms; [ linux darwin ];
-          plutus-playground-server.components.exes.plutus-playground-server.platforms = with lib.platforms; [ linux darwin ];
-          marlowe.components.exes.marlowe-pab.platforms = with lib.platforms; [ linux darwin ];
-          marlowe-playground-server.components.exes.marlowe-playground-server.platforms = with lib.platforms; [ linux darwin ];
-
           # Broken due to warnings, unclear why the setting that fixes this for the build doesn't work here.
           iohk-monitoring.doHaddock = false;
 
@@ -278,30 +267,13 @@ let
           # See https://github.com/input-output-hk/iohk-nix/pull/488
           cardano-crypto-praos.components.library.pkgconfig = lib.mkForce [ [ libsodium-vrf ] ];
           cardano-crypto-class.components.library.pkgconfig = lib.mkForce [ [ libsodium-vrf ] ];
-
-          # By default haskell.nix chooses the `buildPackages` versions of these `build-tool-depeends`, but
-          # when cross compiling we want the cross compiled version.
-          plutus-pab.components.library.build-tools = lib.mkForce [
-            config.hsPkgs.cardano-node.components.exes.cardano-node
-            config.hsPkgs.cardano-cli.components.exes.cardano-cli
-          ];
-          plutus-metatheory.components.tests.test1.build-tools = lib.mkForce [
-            config.hsPkgs.plutus-core.components.exes.plc
-            config.hsPkgs.plutus-core.components.exes.uplc
-            agdaWithStdlib
-          ];
-          plutus-metatheory.components.tests.test2.build-tools = lib.mkForce [
-            config.hsPkgs.plutus-core.components.exes.plc
-            config.hsPkgs.plutus-core.components.exes.uplc
-            agdaWithStdlib
-          ];
         };
-      })
+      }
     ] ++ lib.optional enableHaskellProfiling {
       enableLibraryProfiling = true;
       enableExecutableProfiling = true;
     };
-  });
+  };
 
 in
 project
