@@ -134,14 +134,11 @@ let
             # "stm" "terminfo"
           ];
         packages.Win32.components.library.build-tools = lib.mkForce [ ];
-        # TODO fix nix-tools so this is automatic
-        packages.marlowe.components.tests.marlowe-test.buildable = lib.mkForce false;
-        packages.prettyprinter-configurable.components.tests.prettyprinter-configurable-test.buildable = lib.mkForce false;
       })
       ({ pkgs, ... }: lib.mkIf (pkgs.stdenv.hostPlatform != pkgs.stdenv.buildPlatform) {
         packages = {
           # Things that need plutus-tx-plugins
-          marlowe.package.buildable = false;  # Would also require libpq
+          marlowe.package.buildable = false; # Would also require libpq
           marlowe-actus.package.buildable = false;
           marlowe-dashboard-server.package.buildable = false;
           marlowe-playground-server.package.buildable = false; # Would also require libpq
